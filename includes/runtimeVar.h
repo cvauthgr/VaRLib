@@ -5,7 +5,7 @@
 //is guaranteed to return at least one value
 
 #define MINIMUM_DATA_AMOUNT 100
-//#define DEBUG
+#define DEBUG
 
 #include <cmath>
 #include <concepts>
@@ -17,6 +17,9 @@
 #include <cassert>
 #include <iostream>
 
+//This part calculates CVaR but regardless it is a good addition
+//I will implement true VaR now 22/6/2026
+// 
 //We will implement three types of runtime VaR calculations
 //
 // 1)Using historical data -> Easiest 
@@ -48,6 +51,15 @@
 
 namespace runtime { // Runtime VaR calculation implementations
 
+//Remove added verbocity
+using namespace runtime ;
+
+enum class typeOfVaR
+{
+    CVaR,
+    trueVaR,
+};
+
 enum class errorInfo
 {
     insufficientDataAmount,
@@ -57,6 +69,9 @@ enum class errorInfo
     sortingLocalCopyFailed,
 };
 
+//Using this to reduce verbocity
+//From runtime::typeOfVaR -> straight CVaR || trueVaR
+using enum runtime::typeOfVaR ;
 
 inline void reportError(errorInfo type)
 {
@@ -113,8 +128,9 @@ std::expected<bool,errorInfo> checkForSufficientAmountOfData(const T& container)
     return std::unexpected{errorInfo::insufficientDataAmount} ;
 }
 
-template <double confidenceLevel,typename T>
-requires Container<T> && (confidenceLevel>0.0 && confidenceLevel<100.0)  
+//Add the option of CVaR Vs true VaR
+template <double confidenceLevel,typeOfVaR type=typeOfVaR::trueVaR,typename T>
+requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0.0 && confidenceLevel<100.0)  
 std::expected<double,errorInfo> calculateVarHistoric(const T& container)
 {
     auto check = checkForSufficientAmountOfData(container);
@@ -168,18 +184,22 @@ std::expected<double,errorInfo> calculateVarHistoric(const T& container)
             #endif
             VaR += localContainerCopy.at(index) ;
         }
-
-        return std::fabs(VaR/VaRElementCount) ;
+        //If the user choose CVaR return the mean of the sorted range
+        //else report the element at the cutoff range
+        if(type == typeOfVaR::CVaR)
+            return std::fabs(VaR/VaRElementCount) ;
+        else
+            return std::fabs(localContainerCopy.at(VaRElementCount-1)) ;
     }
     else
         return std::unexpected{errorInfo::sortingLocalCopyFailed};
 }
 
-template <double confidenceLevel, typename T>
-requires Container<T> && (confidenceLevel>0 && confidenceLevel<100)
+template <double confidenceLevel,typeOfVaR type=typeOfVaR::trueVaR,typename T>
+requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0 && confidenceLevel<100)
 inline std::expected<double , errorInfo> fetchVaRHistoric(const T& container)
 {
-    auto result = calculateVarHistoric<confidenceLevel>(container);
+    auto result = calculateVarHistoric<confidenceLevel,type>(container);
 
     if(result.has_value())
         return result.value();
@@ -193,3 +213,6 @@ inline std::expected<double , errorInfo> fetchVaRHistoric(const T& container)
 
 
 }
+
+
+using namespace runtime ;
