@@ -1,0 +1,14 @@
+# Build artifacts
+*.exe
+*.o
+*.obj
+main
+cppcheck_report.txt
+
+# Editor / LSP configs (contain absolute paths)
+.clangd
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
