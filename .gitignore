@@ -2,8 +2,14 @@
 *.exe
 *.o
 *.obj
+*.cpp
 main
 cppcheck_report.txt
+
+#Unused header files
+RandomGeneration.h
+constexprVar.h
+runtimeVar.h
 
 # Editor / LSP configs (contain absolute paths)
 .clangd
