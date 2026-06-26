@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <climits>
 #include <cstddef>
 #include <iterator>
 #include <numeric>
@@ -65,13 +66,14 @@ namespace esoteric
         invalidDataSetMembers,
         localCopyFailed,
         sortingLocalCopyFailed,
+        unknownInternalFailure,
     };
 
 //Moving reportError here as it will be used repeatedly
 inline void reportError(errorInfo type)
 {
     if(type == errorInfo::insufficientDataAmount)
-        std::cout << "Insufficient amount of data for VaR calculation\n" ;
+        std::cout << "Insufficient amount of data for VaR calculation (amount_of_values < 100)\n" ;
     else if(type == errorInfo::emptyDataSet)
         std::cout << "Container is empty\n" ;
     else if(type == errorInfo::invalidDataSetMembers)
@@ -98,100 +100,10 @@ inline std::ostream& operator<<(std::ostream& os, const std::expected<double, er
     return os;
 
 }
-
-//Namespace for the compile time VaR evaluation
-namespace compiletime  
-{
-
-    template <typename T>
-    consteval bool checkForEmpty( T& container ){
-
-        if(container.empty()){
-            return false ;
-    
-        }
-
-        return true ;
-    }
-
-    template <typename T>
-    consteval bool checkForSufficientSizeOfData( T& container ){
-
-        if( checkForEmpty(container)){
-    
-            if(std::ssize(container) >= 100){return true ;}
-
-            return false ;
-        }
-    }
-
-    //Sort the passed container in ascending order
-    //Check if it sorted before returning true 
-    template <typename T>
-    consteval bool sortContainer( T& container ){
-
-        if(checkForSufficientSizeOfData(container)){
-
-            if(checkForEmpty(container)){
-
-            //Make a local copy of the array and then use that
-
-            std::ranges::sort(container);
-
-            if(std::ranges::is_sorted(container)){return true ;}
-            }
-                return false ;
-        }
-    }
-
-    //Return the needed range for the percentile of
-    //elements specified to the next method needed  
-    template <typename T,double percentageOfConfidence>
-    consteval int SortAndGetRange( T& container ){  
-
-        //Logic is needed . We will return a range indicator
-        //for elements from the whole container passed
-
-        //Find how many elements that % represent
-
-        if(sortContainer(container)){
-        constexpr const int range = std::ssize(container) - (std::ssize(container)*percentageOfConfidence)/100 ;
-
-        return range ;
-        }
-
-        return -1 ;
-    }
-
-    //Calculate the VaR and return it to the user
-    //The arguments are the whole container and
-    //the precylculated range that is passed
-    template <typename T>
-    consteval double fetch(const T& container , int range ){
-
-        T container_copy = container ;
-
-        double VaR { } ;
-
-        for( int index { } ; index < SortAndGetRange<T,95.0>(container_copy) ; ++ index ){
-            VaR += container_copy[index] ;
-        }
-
-        return VaR/range ;   
-    }
-
-}
-
-//Runtime VaR namespace
-namespace runtime
-{ 
-
     //Using this to reduce verbocity
     //From runtime::typeOfVaR -> straight CVaR || trueVaR
     using enum VaRLib::typeOfVaR ;
-
-    //Concept to evaluate that T is a container
-    //with either float,double, or long double values
+       
     template <typename T>
     concept Container = requires (T set)
     {
@@ -217,7 +129,7 @@ namespace runtime
     }
 
     //Add the option of CVaR Vs true VaR
-    template <double confidenceLevel,typeOfVaR type=typeOfVaR::trueVaR,typename T>
+    template <double confidenceLevel=95.0,typeOfVaR type=typeOfVaR::trueVaR,typename T>
     requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0.0 && confidenceLevel<100.0)  
     inline std::expected<double,errorInfo> calculateVarHistoric(const T& container)
     {
@@ -280,10 +192,10 @@ namespace runtime
                 return std::fabs(localContainerCopy.at(VaRElementCount-1)) ;
         }
         else
-            return std::unexpected{errorInfo::sortingLocalCopyFailed};
+            return std::unexpected{errorInfo::unknownInternalFailure};
     }
 
-    template <double confidenceLevel,typeOfVaR type=typeOfVaR::trueVaR,typename T>
+    template <double confidenceLevel=95.0,typeOfVaR type=typeOfVaR::trueVaR,typename T>
     requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0 && confidenceLevel<100)
     inline std::expected<double , errorInfo> fetchVaRHistoric(const T& container)
     {
@@ -298,5 +210,4 @@ namespace runtime
         }
  
     } //<-End of fetchVaRHistoric
-} //<-End of namespace runtime
-}
+} //<-End of the VaRLib namespace 

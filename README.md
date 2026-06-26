@@ -22,4 +22,3 @@ Runtime VaR calculation supporting:
 2. Parametric (variance-covariance) VaR and CVaR
 3. Monte Carlo VaR and CVaR
 
-**Experimental:** a compile-time API for backtesting on known data sets.
