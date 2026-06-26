@@ -46,13 +46,6 @@ namespace esoteric
         return std::uniform_real_distribution<T>{ min , max }(mt) ;
     }
 
-
-    inline double getInt( double min , double max)
-    {
-        return std::uniform_real_distribution{ min , max }(mt) ;
-    }
-
-
 }//<-End of esoteric namespace 
 
     //Will be reused for the compile time side of
