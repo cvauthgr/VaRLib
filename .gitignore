@@ -10,6 +10,7 @@ cppcheck_report.txt
 RandomGeneration.h
 constexprVar.h
 runtimeVar.h
+Makefile
 
 # Editor / LSP configs (contain absolute paths)
 .clangd
