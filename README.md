@@ -5,20 +5,24 @@
 ![Make](https://img.shields.io/badge/Make-build-427819?logo=gnubash&logoColor=white)
 ![Status](https://img.shields.io/badge/status-WIP-orange)
 
-A header-only, zero-dependency library for calculating **VaR** on a given data set. Written in C++23.
-
+A header-only, **zero-dependency** library for calculating **VaR** on a given data set. Written in C++23.
 > [!WARNING]
-> This library is incomplete and the API may change without notice. Active development is ongoing.
+> This library is incomplete and the API may change **without notice**. Active development is ongoing.
 
 ## Development Status
 
-Not yet single-header and features are still being decided. Contributions are welcome but please open an issue first to discuss.
+Features are still being decided.
+
+## How to use 
+
+There is still **no support** for the IMPLEMENTATION MACRO so the whole library gets pulled in.
+Simply do `#include "VaRLib.h"` in your desired location after placing the downloaded VaRLib.h file in your project's directory. **If you place it elsewhere you will need to point your build system to it!**  
 
 ## Planned Features
 
 Runtime VaR calculation supporting:
 
-1. Historical VaR and CVaR (implemented , not tested)
+1. Historical VaR and CVaR (implemented, not tested)
 2. Parametric (variance-covariance) VaR and CVaR
 3. Monte Carlo VaR and CVaR
 
