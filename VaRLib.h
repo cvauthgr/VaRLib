@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <iterator>
+#include <malloc.h>
 #include <numeric>
 #include <type_traits>
 #include <cmath>
@@ -11,17 +13,34 @@
 #include <expected>
 #include <iostream>
 #include <random>
+#include <cassert>
+#include <vector>
 
 //Necessary previously defined macros , both runtime related
 
+/*Here the plans for the future will be listed :
+1)Move all the functions that should not be used by the
+user in the esoteric namespace*/
+
 #define MINIMUM_DATA_AMOUNT 100
-#define DEBUG
+#define VARLIB_DEBUG
 
 //Start of the VaRlib namespace
 
 namespace VaRLib
 {
-    
+
+    enum class typeOfVaR
+    {
+        CVaR,
+        trueVaR,
+    };
+
+
+    //Using this to reduce verbocity
+    //From runtime::typeOfVaR -> straight CVaR || trueVaR
+    using enum VaRLib::typeOfVaR ;
+        
 //Namespace for the random number generation part
 //esoteric implementation , the user shouldn't touch it
 namespace esoteric
@@ -43,16 +62,6 @@ namespace esoteric
         return std::uniform_real_distribution<T>{ min , max }(mt) ;
     }
 
-}//<-End of esoteric namespace 
-
-    //Will be reused for the compile time side of
-    //the library 
-    enum class typeOfVaR
-    {
-        CVaR,
-        trueVaR,
-    };
-
     //Same reason for this . Will be reused again
     //and most likely improved with new errors    
     enum class errorInfo
@@ -65,9 +74,9 @@ namespace esoteric
         unknownInternalFailure,
     };
 
-//Moving reportError here as it will be used repeatedly
-inline void reportError(errorInfo type)
-{
+    //Moving reportError here as it will be used repeatedly
+    inline void reportError(errorInfo type)
+    {
     if(type == errorInfo::insufficientDataAmount)
         std::cout << "Insufficient amount of data for VaR calculation (amount_of_values < 100)\n" ;
     else if(type == errorInfo::emptyDataSet)
@@ -78,27 +87,24 @@ inline void reportError(errorInfo type)
         std::cout << "Interval program failure : Local container copy failed . Try again!\n" ;
     else if(type == errorInfo::sortingLocalCopyFailed)
         std::cout << "Internal program failure : Sorting local container copy failed . Try again \n" ;
-}
+    }
 
-//Place the operator << overloading here so it is only invokable
-//through this namespace(need to check if what I am claiming is true)
-inline std::ostream& operator<<(std::ostream& os, const std::expected<double, errorInfo>& details)
-{
+    //Place the operator << overloading here so it is only invokable
+    //through this namespace(need to check if what I am claiming is true)
+    inline std::ostream& operator<<(std::ostream& os, const std::expected<double, errorInfo>& details)
+    {
     if(details)
     {
-    os << details.value();
+        os << details.value();
     }
     else
     {
-    reportError(details.error());
+        reportError(details.error());
     }
 
     return os;
 
-}
-    //Using this to reduce verbocity
-    //From runtime::typeOfVaR -> straight CVaR || trueVaR
-    using enum VaRLib::typeOfVaR ;
+    }
        
     template <typename T>
     concept Container = requires (T set)
@@ -125,8 +131,8 @@ inline std::ostream& operator<<(std::ostream& os, const std::expected<double, er
     }
 
     //Add the option of CVaR Vs true VaR
-    template <double confidenceLevel=95.0,typeOfVaR type=typeOfVaR::trueVaR,typename T>
-    requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0.0 && confidenceLevel<100.0)  
+    template <double confidenceLevel=95.0,VaRLib::typeOfVaR type=VaRLib::typeOfVaR::trueVaR,typename T>
+    requires Container<T> && std::is_scoped_enum_v<VaRLib::typeOfVaR> && (confidenceLevel>0.0 && confidenceLevel<100.0)  
     inline std::expected<double,errorInfo> calculateVarHistoric(const T& container)
     {
         auto check = checkForSufficientAmountOfData(container);
@@ -150,7 +156,7 @@ inline std::ostream& operator<<(std::ostream& os, const std::expected<double, er
         //Sort the local copy
         std::sort(localContainerCopy.begin(),localContainerCopy.end()) ;
 
-        #ifdef DEBUG //Print to confirm sort 
+        #ifdef VARLIB_DEBUG //Print to confirm sort 
 
         for( double containerElement : localContainerCopy )
         {
@@ -162,20 +168,20 @@ inline std::ostream& operator<<(std::ostream& os, const std::expected<double, er
         //Check if it is sorted
         if(std::is_sorted(localContainerCopy.begin(),localContainerCopy.end()))
         {
-            int VaRElementCount = std::ssize(localContainerCopy) - (std::ssize(localContainerCopy)*confidenceLevel)/100 ;
+            int VaRElementCount = std::max(1, static_cast<int>(std::ssize(localContainerCopy) - (std::ssize(localContainerCopy)*confidenceLevel)/100));
 
-            #ifdef DEBUG
+            #ifdef VARLIB_DEBUG
             std::cout << "VaR element count : " << VaRElementCount << '\n' ;
             #endif
-    
+
             //Create local VaR variable that is to be returned if
             //everything goes according to plan
             double VaR { } ;
-        
+    
             //Calculate VaR
             for( int index { } ; index < VaRElementCount ; ++ index )
             {
-                #ifdef DEBUG
+                #ifdef VARLIB_DEBUG
                 std::cout << localContainerCopy.at(index) << '\n' ;
                 #endif
                 VaR += localContainerCopy.at(index) ;
@@ -189,21 +195,24 @@ inline std::ostream& operator<<(std::ostream& os, const std::expected<double, er
         }
         else
             return std::unexpected{errorInfo::unknownInternalFailure};
-    }
+        }
+        
+}//<-End of esoteric namespace 
 
     template <double confidenceLevel=95.0,typeOfVaR type=typeOfVaR::trueVaR,typename T>
-    requires Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0 && confidenceLevel<100)
-    inline std::expected<double , errorInfo> fetchVaRHistoric(const T& container)
+    requires esoteric::Container<T> && std::is_scoped_enum_v<typeOfVaR> && (confidenceLevel>0 && confidenceLevel<100)
+    inline std::expected<double , esoteric::errorInfo> fetchVaRHistoric(const T& container)
     {
-        auto result = calculateVarHistoric<confidenceLevel,type>(container);
+        auto result = esoteric::calculateVarHistoric<confidenceLevel,type>(container);
 
         if(result.has_value())
             return result.value();
         else
         {
-            reportError(result.error());
+            esoteric::reportError(result.error());
             return std::unexpected{result.error()};
         }
- 
-    } //<-End of fetchVaRHistoric
+
+    }
+
 } //<-End of the VaRLib namespace 
